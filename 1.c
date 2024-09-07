@@ -13,29 +13,18 @@ volatile sig_atomic_t foreground_processes = 0;
 
 void h_aviso_termina(int sig);
 void h_salir(int sig);
+void leer_comando(char *input, char **args, int *background);
 
-// Función para dividir el input en comandos y argumentos
-void parse_command(char *input, char **args, int *background);
 int main() {
   char line[MAX_LINE];
   char *args[MAX_ARGS];
   int background;
 
-  // Configurar los manejadores de señales
-  struct sigaction sa_chld, sa_int;
-
-  sa_chld.sa_handler = h_aviso_termina;
-  sa_chld.sa_flags = SA_RESTART | SA_NOCLDSTOP;
-  sigemptyset(&sa_chld.sa_mask);
-  sigaction(SIGCHLD, &sa_chld, NULL);
-
-  sa_int.sa_handler = h_salir;
-  sigemptyset(&sa_int.sa_mask);
-  sa_int.sa_flags = 0;
-  sigaction(SIGINT, &sa_int, NULL);
+  signal(SIGINT, h_salir);
+  signal(SIGCHLD, h_aviso_termina);
 
   while (1) {
-    printf("shell> ");
+    printf("fakeshell> ");
     fflush(stdout);
 
     // Leer línea de comando
@@ -44,7 +33,7 @@ int main() {
     }
 
     // Parsear línea de comando
-    parse_command(line, args, &background);
+    leer_comando(line, args, &background);
 
     if (args[0] == NULL) {
       continue; // Si no hay comando, continuar
@@ -93,16 +82,16 @@ void h_aviso_termina(int sig) {
 void h_salir(int sig) {
   while (foreground_processes > 0) {
     printf("Esperando la finalización de procesos foreground...\n");
-    pause(); 
+    pause();
     printf("Todos los procesos foreground han terminado.");
   }
   printf("\n Saliendo...\n");
   exit(0);
 }
 
-void parse_command(char *input, char **args, int *background) {
+void leer_comando(char *input, char **args, int *background) {
   *background = 0;
-  char *token = strtok(input, " \t\n");
+  char *token = strtok(input, " ");
   int i = 0;
 
   while (token != NULL) {
@@ -113,5 +102,5 @@ void parse_command(char *input, char **args, int *background) {
     }
     token = strtok(NULL, " \t\n");
   }
-  args[i] = NULL; // Terminar la lista de argumentos con NULL
+  args[i] = NULL;
 }
