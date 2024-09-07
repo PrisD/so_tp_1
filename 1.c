@@ -3,13 +3,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/wait.h>
-#include <time.h>
 #include <unistd.h>
 
 #define MAX_LINE 1024
 #define MAX_ARGS 100
 
-volatile sig_atomic_t foreground_processes = 0;
+int foreground_processes = 0;
 
 void h_aviso_termina(int sig);
 void h_salir(int sig);
@@ -24,46 +23,42 @@ int main() {
   signal(SIGCHLD, h_aviso_termina);
 
   while (1) {
-    printf("fakeshell> ");
+    printf("shell> ");
     fflush(stdout);
 
-    // Leer línea de comando
     if (!fgets(line, MAX_LINE, stdin)) {
-      break; // Terminar si se encuentra EOF
+      break;
     }
 
-    // Parsear línea de comando
     leer_comando(line, args, &background);
 
     if (args[0] == NULL) {
-      continue; // Si no hay comando, continuar
+      continue;
     }
 
-    // Comando especial para salir
     if (strcmp(args[0], "salir") == 0) {
       printf("Saliendo...\n");
       break;
     }
 
-    // Crear un proceso hijo para ejecutar el comando
     pid_t pid = fork();
     if (pid < 0) {
       perror("Error al crear proceso hijo");
     } else if (pid == 0) {
-      // Proceso hijo
+      // Lógica hijo
       execvp(args[0], args);
       perror("Error al ejecutar comando");
       exit(0);
     } else {
-      // Proceso padre
+      // Lógica padre
       if (!background) {
-        // Proceso foreground: esperar a que termine
+        // Proceso foreground espera a que termine
         foreground_processes++;
         waitpid(pid, NULL, 0);
         foreground_processes--;
       } else {
-        // Proceso background: no esperar
-        printf("[Proceso %d ejecutándose en background]\n", pid);
+        // Informar el pid q se ejecuta en background
+        printf("Proceso %d ejecutándose en background\n", pid);
       }
     }
   }
@@ -75,17 +70,17 @@ void h_aviso_termina(int sig) {
   int status;
   pid_t pid;
   while ((pid = waitpid(0, NULL, 0)) > 0) {
-    printf("[Terminé! soy %d ]\n", pid);
+    printf("Terminé! soy %d \n", pid);
   }
 }
 
 void h_salir(int sig) {
+  printf("\nRecibido CTRL+C. Esperando la finalización de procesos "
+         "foreground...\n");
   while (foreground_processes > 0) {
-    printf("Esperando la finalización de procesos foreground...\n");
-    pause();
-    printf("Todos los procesos foreground han terminado.");
+    pause(); 
   }
-  printf("\n Saliendo...\n");
+  printf("Saliendo...\n");
   exit(0);
 }
 
