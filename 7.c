@@ -14,34 +14,28 @@ probar comando en la consola de telnet "ls",
 con el comando "salir" desconectas la conexión
 si el addres esta en uso usar " sudo lsof -i :8080" */
 
-#define PORT 8080        // Puerto en el que el servidor escucha
-#define BUFFER_SIZE 1024 // Tamaño del buffer para recibir y enviar datos
+#define PORT 8080        
+#define BUFFER_SIZE 1024 
 
-// Función que maneja la comunicación con el cliente
 void *handle_client(void *arg) {
-  int client_socket = *(int *)arg; // Extraer el socket del cliente
-  free(arg);                       // Liberar la memoria del argumento
+  int client_socket = *(int *)arg; 
+  free(arg);                      
   char buffer[BUFFER_SIZE];
 
   while (1) {
-    // Limpiar el buffer y recibir el comando del cliente
     memset(buffer, 0, BUFFER_SIZE);
     ssize_t bytes_received = recv(client_socket, buffer, BUFFER_SIZE - 1, 0);
     if (bytes_received <= 0) {
       perror("Error al recibir datos del cliente");
       break;
     }
-
-    // Remover la nueva línea al final del comando recibido
     buffer[strcspn(buffer, "\r\n")] = 0;
 
-    // Verificar si el comando es "salir" para cerrar la conexión
     if (strcmp(buffer, "salir") == 0) {
       printf("Cliente desconectado.\n");
       break;
     }
 
-    // Crear un pipe para capturar la salida del comando
     int pipe_fd[2];
     if (pipe(pipe_fd) == -1) {
       perror("Error al crear el pipe");
@@ -49,44 +43,39 @@ void *handle_client(void *arg) {
       pthread_exit(NULL);
     }
 
-    pid_t pid = fork(); // Crear un proceso hijo para ejecutar el comando
+    pid_t pid = fork(); 
     if (pid == -1) {
       perror("Error al crear el proceso hijo");
       close(client_socket);
       pthread_exit(NULL);
-    } else if (pid == 0) {             // Código del proceso hijo
-      close(pipe_fd[0]);               // Cerrar el extremo de lectura del pipe
-      dup2(pipe_fd[1], STDOUT_FILENO); // Redirigir la salida estándar al pipe
-      dup2(pipe_fd[1], STDERR_FILENO); // Redirigir la salida de error al pipe
+    } else if (pid == 0) {             
+      close(pipe_fd[0]);               
+      dup2(pipe_fd[1], STDOUT_FILENO); 
+      dup2(pipe_fd[1], STDERR_FILENO); 
       close(pipe_fd[1]);
-
-      // Ejecutar el comando utilizando /bin/sh para interpretar la línea de
-      // comando
       execlp("/bin/sh", "sh", "-c", buffer, (char *)NULL);
       perror("Error al ejecutar el comando");
       exit(EXIT_FAILURE);
-    } else {             // Código del proceso padre
-      close(pipe_fd[1]); // Cerrar el extremo de escritura del pipe
+    } else {             
+      close(pipe_fd[1]); 
 
-      // Leer la salida del comando desde el pipe y enviarla al cliente
       char read_buffer[BUFFER_SIZE];
       ssize_t bytes_read;
       while ((bytes_read =
                   read(pipe_fd[0], read_buffer, sizeof(read_buffer) - 1)) > 0) {
         read_buffer[bytes_read] =
-            '\0'; // Asegurar que la cadena esté correctamente terminada
+            '\0'; 
         send(client_socket, read_buffer, bytes_read,
-             0); // Enviar la salida al cliente
+             0); 
       }
 
-      close(pipe_fd[0]); // Cerrar el extremo de lectura del pipe
+      close(pipe_fd[0]); 
       waitpid(pid, NULL,
-              0); // Esperar a que el proceso hijo termine y limpiar el estado
-    }
+              0); }
   }
 
-  close(client_socket); // Cerrar el socket del cliente
-  pthread_exit(NULL);   // Terminar el hilo
+  close(client_socket);
+  pthread_exit(NULL);   
 }
 
 int main() {
@@ -136,7 +125,7 @@ int main() {
     printf("Conexión aceptada desde %s:%d\n", inet_ntoa(client_addr.sin_addr),
            ntohs(client_addr.sin_port));
 
-    // Crear un hilo para manejar al cliente
+
     pthread_t thread_id;
     if (pthread_create(&thread_id, NULL, handle_client, client_socket) != 0) {
       perror("Error al crear el hilo");
@@ -145,10 +134,9 @@ int main() {
       continue;
     }
 
-    // Desvincular el hilo para que se maneje automáticamente su memoria
     pthread_detach(thread_id);
   }
 
-  close(server_socket); // Cerrar el socket del servidor
+  close(server_socket); 
   return 0;
 }
